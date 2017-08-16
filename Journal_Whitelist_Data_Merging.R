@@ -16,17 +16,25 @@ useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print versi
                  'APC amount', 'Currency', "Journal article submission fee",
                  "Submission fee URL", "Submission fee amount", "Submission fee currency",
                  "Full text language", "Average number of weeks between submission and publication",
-                 "Journal license", "Author holds copyright without restrictions", "Subjects")
+                 "Journal license", "Subjects")
 
 
 doaj_data <- doaj_data %>% select(one_of(useful_cols_doaj))
 doaj_data <- doaj_data %>% 
   filter(`Full text language` == "English" | `Full text language` == "German") %>% #English only journals
-  filter(grepl("Medicine", `Subjects`)) #Which categories to use?
+  filter(grepl("Medicine", `Subjects`)) %>% #Which categories to use?
+  filter(is.na(`Submission fee amount`)) %>% #Take only journals without submission fee
+  filter(`Currency` == "EUR - Euro" | `Currency` == "GBP - Pound Sterling" | `Currency` == "USD - US Dollar" | is.na(`Currency`))
 
 #rename some columns
-doaj_data <- doaj_data %>% rename(pISSN = `Journal ISSN (print version)`)
-doaj_data <- doaj_data %>% rename(eISSN = `Journal EISSN (online version)`)
+doaj_data <- doaj_data %>% 
+  rename(pISSN = `Journal ISSN (print version)`) %>%
+  rename(eISSN = `Journal EISSN (online version)`)
+
+#drop some columns
+doaj_data <- doaj_data %>% 
+  select(-`Journal article submission fee`, -`Submission fee URL`, -`Submission fee amount`, -`Submission fee currency`)
+
 
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -93,29 +101,41 @@ joined_data <- joined_data %>%
 #----------------------------------------------------------------------------------------------------------------------------
 
 romeo_color_list <- rep("", dim(joined_data)[1])
+is_hybrid <- rep("", dim(joined_data)[1])
 for(i in 1:dim(joined_data)[1])
 {
-  #retrieve romeo color for given issn
+  #get sherpa entry for given issn
   issn <- getISSN(joined_data[["pISSN"]][i], joined_data[["eISSN"]][i])
   sherpa_entry <- readLines(paste0("http://www.sherpa.ac.uk/romeo/api29.php?issn=", issn, "&ak=", romeo_api_key))
   sherpa_entry <- xmlParse(sherpa_entry)
-  romeo_colour <- xpathSApply(sherpa_entry, "//romeocolour", fun = xmlValue)
   
-  #handle cases with no or several entries
-  if(length(romeo_colour) == 0) {
+  #retrieve romeo color
+  romeo_colour <- xpathSApply(sherpa_entry, "//romeocolour", fun = xmlValue)
+  if(length(romeo_colour) == 0) { #handle cases with no or several entries
     romeo_colour <- ""
   } else {
     romeo_colour <- get_lowest_color(romeo_colour)
   }
   
+  #retrieve hybrid info
+  hybrid <- xpathSApply(sherpa_entry, "//paidaccessnotes", fun = xmlValue)
+  hybrid <- hybrid == "A paid open access option is available for this journal."
+  if(length(hybrid) == 0) {
+    hybrid <- FALSE
+  }
+  hybrid <- all(hybrid) #sometimes the paidaccessnotes tag is given more than once
+  
   #fill list
-  print(paste0("i: ", i, " romeo_colour: ", romeo_colour))
+  print(paste0("i: ", i, " romeo_colour: ", romeo_colour, " is_hybrid: ", hybrid))
   romeo_color_list[i] <- romeo_colour[1]
+  is_hybrid[i] <- hybrid
 }
+is_hybrid <- logical_to_yes_no(as.logical(is_hybrid))
 
-#add romeo color as new column
+#add romeo color and is_hybrid as new column
 joined_data <- joined_data %>%
-  add_column(romeo_color_list)
+  add_column(romeo_color_list) %>%
+  add_column(is_hybrid)
 
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -124,12 +144,9 @@ joined_data <- joined_data %>%
 
 #rearrange columns
 final_col <- c('Journal title.doaj', "is_PMC_listed", "Journal Impact Factor",
-               "romeo_color_list", "Free access", "Open access", "Journal license",
-               "Author holds copyright without restrictions", "Subjects",
-               'Journal article processing charges (APCs)', 'APC information URL', 
-               'APC amount', 'Currency', "Journal article submission fee",
-               "Submission fee URL", "Submission fee amount", "Submission fee currency",
-               "Average number of weeks between submission and publication",
+               "romeo_color_list", "Free access", "Open access", "is_hybrid", "Journal license",
+               "Subjects", 'Journal article processing charges (APCs)', 'APC information URL', 
+               'APC amount', 'Currency', "Average number of weeks between submission and publication",
                'Journal URL', 'Publisher.doaj', "pISSN", "eISSN")
 joined_data <- joined_data %>% 
   select(one_of(final_col)) %>%
@@ -137,4 +154,4 @@ joined_data <- joined_data %>%
   arrange(`Journal title`)
 
 save_filename <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\Journal_Whitelist_Table.csv'
-write_csv(joined_data, save_filename)
+#write_csv(joined_data, save_filename)
