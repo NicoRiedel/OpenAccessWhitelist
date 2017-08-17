@@ -29,3 +29,9 @@ get_lowest_color <- function(romeo_col_vec)
   return(lowest_col)
 }
 
+
+#helper function to extract the postprint restriction info from the sherpa/romeo xml
+extract_post_restr <- function(post_restr_str) 
+{
+  return(gsub("<.*?>", "", post_restr_str))
+}

@@ -43,8 +43,7 @@ doaj_data <- doaj_data %>%
 
 pmc_data <- read_csv('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\PMC_journal_list.csv')
 
-useful_cols_pmc <- c("Journal title", "pISSN", "eISSN", "Publisher",
-                      "Free access", "Open access")
+useful_cols_pmc <- c("Journal title", "pISSN", "eISSN", "Publisher")
 
 pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
 
@@ -100,53 +99,74 @@ joined_data <- joined_data %>%
 # retrieve sherpa/romeo info and add to data table
 #----------------------------------------------------------------------------------------------------------------------------
 
-romeo_color_list <- rep("", dim(joined_data)[1])
-is_hybrid <- rep("", dim(joined_data)[1])
+pre_archiving <- rep("", dim(joined_data)[1])
+post_archiving <- rep("", dim(joined_data)[1])
+post_restriction <- rep("", dim(joined_data)[1])
+publ_archiving <- rep("", dim(joined_data)[1])
 for(i in 1:dim(joined_data)[1])
 {
   #get sherpa entry for given issn
   issn <- getISSN(joined_data[["pISSN"]][i], joined_data[["eISSN"]][i])
   sherpa_entry <- readLines(paste0("http://www.sherpa.ac.uk/romeo/api29.php?issn=", issn, "&ak=", romeo_api_key))
   sherpa_entry <- xmlParse(sherpa_entry)
+
+  #retrieve archiving rights - only select first publisher entry, as there are sometimes conflicting results 
+  #for different publishers and usually the first publisher is the current or most important one
+  pre_arch <- xpathSApply(sherpa_entry, "//publisher[1]//prearchiving", fun = xmlValue)
+  if(length(pre_arch) == 0) { pre_arch <- "" }#handle cases with no or several entries
   
-  #retrieve romeo color
-  romeo_colour <- xpathSApply(sherpa_entry, "//romeocolour", fun = xmlValue)
-  if(length(romeo_colour) == 0) { #handle cases with no or several entries
-    romeo_colour <- ""
+  post_arch <- xpathSApply(sherpa_entry, "//publisher[1]//postarchiving", fun = xmlValue)
+  if(length(post_arch) == 0) { post_arch <- "" }
+  
+  publ_arch <- xpathSApply(sherpa_entry, "//publisher[1]//pdfarchiving", fun = xmlValue)
+  if(length(publ_arch) == 0) { publ_arch <- "" }
+  
+  #postprint restriction is different, need to extract timeframe from xml
+  post_restr <- xpathSApply(sherpa_entry, "//publisher[1]//postprints//postrestriction", fun = xmlValue)
+  if(length(post_restr) == 0) { 
+    post_restr <- "" 
   } else {
-    romeo_colour <- get_lowest_color(romeo_colour)
+    if(length(post_restr) == 1) {
+      post_restr <- extract_post_restr(post_restr)
+    } else {
+      post_restr <- paste((sapply(post_restr, extract_post_restr)), collapse = "; ") 
+    }
   }
-  
-  #retrieve hybrid info
-  hybrid <- xpathSApply(sherpa_entry, "//paidaccessnotes", fun = xmlValue)
-  hybrid <- hybrid == "A paid open access option is available for this journal."
-  if(length(hybrid) == 0) {
-    hybrid <- FALSE
-  }
-  hybrid <- all(hybrid) #sometimes the paidaccessnotes tag is given more than once
-  
+
   #fill list
-  print(paste0("i: ", i, " romeo_colour: ", romeo_colour, " is_hybrid: ", hybrid))
-  romeo_color_list[i] <- romeo_colour[1]
-  is_hybrid[i] <- hybrid
+  print(paste0("i: ", i, " pre_arch: ", pre_arch, " post_arch: ", post_arch, " publ_arch: ", publ_arch, " post_restr: ", post_restr))
+  pre_archiving[i] <- pre_arch
+  post_archiving[i] <- post_arch
+  publ_archiving[i] <- publ_arch
+  post_restriction[i] <- post_restr
+  
 }
-is_hybrid <- logical_to_yes_no(as.logical(is_hybrid))
 
 #add romeo color and is_hybrid as new column
 joined_data <- joined_data %>%
-  add_column(romeo_color_list) %>%
-  add_column(is_hybrid)
+  add_column(pre_archiving) %>%
+  add_column(post_archiving) %>%
+  add_column(post_restriction) %>% 
+  add_column(publ_archiving)
 
+#rename new columns
+joined_data <- joined_data %>% 
+  rename(`Can archive pre-print` = pre_archiving) %>%
+  rename(`Can archive post-print` = post_archiving) %>%
+  rename(`Post-print restrictions` = post_restriction) %>%
+  rename(`Can archive publisher's version/PDF` = publ_archiving)
 
 #----------------------------------------------------------------------------------------------------------------------------
 # save current version of spreadsheet
 #----------------------------------------------------------------------------------------------------------------------------
 
 #rearrange columns
-final_col <- c('Journal title.doaj', "is_PMC_listed", "Journal Impact Factor",
-               "romeo_color_list", "Free access", "Open access", "is_hybrid", "Journal license",
-               "Subjects", 'Journal article processing charges (APCs)', 'APC information URL', 
-               'APC amount', 'Currency', "Average number of weeks between submission and publication",
+final_col <- c('Journal title.doaj', "Can archive pre-print", 
+               "Can archive post-print", "Post-print restrictions", 
+               "Can archive publisher's version/PDF", "Journal license", "Subjects", 
+               'Journal article processing charges (APCs)', 
+               'APC information URL', 'APC amount', 'Currency', 
+               "Average number of weeks between submission and publication",
                'Journal URL', 'Publisher.doaj', "pISSN", "eISSN")
 joined_data <- joined_data %>% 
   select(one_of(final_col)) %>%
@@ -154,4 +174,4 @@ joined_data <- joined_data %>%
   arrange(`Journal title`)
 
 save_filename <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\Journal_Whitelist_Table.csv'
-#write_csv(joined_data, save_filename)
+write_csv(joined_data, save_filename)
