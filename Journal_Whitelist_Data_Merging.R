@@ -18,7 +18,7 @@ useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print versi
                  "Full text language", "Average number of weeks between submission and publication",
                  "Journal license", "Subjects")
 
-
+#filter rows
 doaj_data <- doaj_data %>% select(one_of(useful_cols_doaj))
 doaj_data <- doaj_data %>% 
   filter(`Full text language` == "English" | `Full text language` == "German") %>% #English only journals
@@ -26,16 +26,29 @@ doaj_data <- doaj_data %>%
   filter(is.na(`Submission fee amount`)) %>% #Take only journals without submission fee
   filter(`Currency` == "EUR - Euro" | `Currency` == "GBP - Pound Sterling" | `Currency` == "USD - US Dollar" | is.na(`Currency`))
 
+
+#modify and merge APC columns to condese information in one column
+doaj_data <- doaj_data %>% 
+  mutate(Currency = substr(Currency, 1, 3)) %>% 
+  mutate(APC = paste(`APC amount`, `Currency`))
+
+#value replacement for subset of rows is not properly implemented in dplyr as simple solution, so use usual R way
+noAPC_idx <- which(doaj_data["Journal article processing charges (APCs)"] != "Yes")
+doaj_data[noAPC_idx, "APC"] <- doaj_data[noAPC_idx, "Journal article processing charges (APCs)"]
+
+
 #rename some columns
 doaj_data <- doaj_data %>% 
   rename(pISSN = `Journal ISSN (print version)`) %>%
-  rename(eISSN = `Journal EISSN (online version)`)
+  rename(eISSN = `Journal EISSN (online version)`) %>%
+  rename(`APC drop` = `Journal article processing charges (APCs)`) %>%
+  rename(`Journal article processing charges (APCs)` = APC)
 
 #drop some columns
 doaj_data <- doaj_data %>% 
-  select(-`Journal article submission fee`, -`Submission fee URL`, -`Submission fee amount`, -`Submission fee currency`)
-
-
+  select(-`Journal article submission fee`, -`Submission fee URL`, 
+         -`Submission fee amount`, -`Submission fee currency`, 
+         -`APC drop`, -`APC amount`, -Currency)
 
 #----------------------------------------------------------------------------------------------------------------------------
 # PMC dataset
@@ -142,18 +155,21 @@ for(i in 1:dim(joined_data)[1])
   
 }
 
+#paste post restriction entry to post_archiving for the few cases where it is not empty
+hasRestr_idx <- which(post_restriction != "")
+post_archiving[hasRestr_idx] <- paste(post_archiving[hasRestr_idx], post_restriction[hasRestr_idx], sep = ": ")
+
+
 #add romeo color and is_hybrid as new column
 joined_data <- joined_data %>%
   add_column(pre_archiving) %>%
   add_column(post_archiving) %>%
-  add_column(post_restriction) %>% 
   add_column(publ_archiving)
 
 #rename new columns
 joined_data <- joined_data %>% 
   rename(`Can archive pre-print` = pre_archiving) %>%
   rename(`Can archive post-print` = post_archiving) %>%
-  rename(`Post-print restrictions` = post_restriction) %>%
   rename(`Can archive publisher's version/PDF` = publ_archiving)
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -161,16 +177,16 @@ joined_data <- joined_data %>%
 #----------------------------------------------------------------------------------------------------------------------------
 
 #rearrange columns
-final_col <- c('Journal title.doaj', "Can archive pre-print", 
-               "Can archive post-print", "Post-print restrictions", 
-               "Can archive publisher's version/PDF", "Journal license", "Subjects", 
-               'Journal article processing charges (APCs)', 
-               'APC information URL', 'APC amount', 'Currency', 
+final_col <- c('Journal title.doaj',  
+               'Journal article processing charges (APCs)', 'APC information URL',
                "Average number of weeks between submission and publication",
+               "Can archive pre-print", "Can archive post-print",
+               "Can archive publisher's version/PDF", "Journal license", "Subjects", 
                'Journal URL', 'Publisher.doaj', "pISSN", "eISSN")
 joined_data <- joined_data %>% 
   select(one_of(final_col)) %>%
   rename(`Journal title` = `Journal title.doaj`) %>% 
+  rename(Publisher = `Publisher.doaj`) %>% 
   arrange(`Journal title`)
 
 save_filename <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\Journal_Whitelist_Table.csv'
