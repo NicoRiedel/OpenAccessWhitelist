@@ -6,32 +6,60 @@ logical_to_yes_no <- function(logic_vec)
 }
 
 
-#sometimes only pISSN or eISSN given, choose one
-getISSN <- function(pISSN, eISSN)
+#checks if any of the regional keywords are contained in the journal name
+is_regional_journal <- function(journal_name)
 {
-  if(!is.na(pISSN)) {
-    ISSN <- pISSN
+  regional_terms <- c("Korean", "Canadian", "Oman", "Libyan", "Iran",
+                      "Macedonian", "Chinese", "India", "Scandinavi",
+                      "Saudi", "Arab", "Asia", "Nigeria", "Yoga",
+                      "Israel", "Australasian", "Bosnian", "Qaboos",
+                      "Japan", "Ethiopian", "Africa", "Korea",
+                      "Slovenian", "Polish", "Brazilian", "Malaysia",
+                      "Egyptian", "Alexandria", "Bali", "Indonesia",
+                      "Nepal", "Pakistan", "Jundishapur", "South Eastern",
+                      "Anatolia", "Rambam Maimonides", "Sri Lanka",
+                      "Bangabandhu Sheikh Mujib", "Irish", "Zahedan",
+                      "Middle East", "Bangladesh", "Motriz", "Nordic",
+                      "Medicinski", "Medyczne", "Dānish")
+  grep_results <- sapply(regional_terms, grepl, x=as.character(journal_name))
+  
+  return(any(grep_results))
+}
+
+
+#define separate function instead of using regular join because the 
+#scopus eISSN as well as pISSN has to be checked against both DOAJ pISSN/eISSN
+get_SJR <- function(eISSN, pISSN, scopus_data)
+{
+  #try al matches of pISSN/eISSN
+  ee_SJR <- get_SJR_sub(eISSN, scopus_data$eISSN, scopus_data$`SJR Impact`)
+  ep_SJR <- get_SJR_sub(eISSN, scopus_data$pISSN, scopus_data$`SJR Impact`)
+  pe_SJR <- get_SJR_sub(pISSN, scopus_data$eISSN, scopus_data$`SJR Impact`)
+  pp_SJR <- get_SJR_sub(pISSN, scopus_data$pISSN, scopus_data$`SJR Impact`)
+  
+  #get nonzero entry
+  SRJ_vec <- c(ee_SJR, ep_SJR, pe_SJR, pp_SJR)
+  SRJ_vec <- SRJ_vec[!is.na(SRJ_vec)]
+  if(length(SRJ_vec) == 0) {
+    SRJ <- NA
   } else {
-    ISSN <- eISSN
+    SRJ <- SRJ_vec[1]
   }
   
-  return(ISSN)
+  return(SRJ)
 }
 
 
-#in some cases several publishers are given for one journal - then pick lowest romeo col
-get_lowest_color <- function(romeo_col_vec)
+#calculates SJR for one combination of eISSN/pISSN
+get_SJR_sub <- function(ISSN, scopus_ISSN, scopus_SJR)
 {
-  color_list <- c("white", "gray", "yellow", "blue", "green")
-  lowest_col_idx <- which(color_list %in% romeo_colour)[1]
-  lowest_col <- color_list[lowest_col_idx]
+  SRJ_idx <- match(ISSN, scopus_ISSN)
+  if(is.na(SRJ_idx)) {
+    SJR <- NA
+  } else {
+    SJR <- scopus_SJR[[SRJ_idx]]
+  }
   
-  return(lowest_col)
+  return(SJR)
 }
 
-
-#helper function to extract the postprint restriction info from the sherpa/romeo xml
-extract_post_restr <- function(post_restr_str) 
-{
-  return(gsub("<.*?>", "", post_restr_str))
-}
