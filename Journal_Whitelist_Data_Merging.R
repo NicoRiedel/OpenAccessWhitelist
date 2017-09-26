@@ -2,15 +2,20 @@ source('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\R-Code
 library(tidyverse)
 library(XML)
 
+#update datasets
+#download.file('https://doaj.org/csv', 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\DOAJ_journal_list_upd.csv')
+#download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\PMC_journal_list_upd.csv')
+
 #currency excange rates
 exchange_rates <- c(1.0, 0.8392, 1.1369,NA)
 names(exchange_rates) <- c("EUR", "USD", "GBP", "-")
+
 
 #----------------------------------------------------------------------------------------------------------------------------
 # DOAJ dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-doaj_data <- read_csv('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\DOAJ_journal_list.csv')
+doaj_data <- read_csv('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\DOAJ_journal_list_upd.csv')
 
 useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print version)', 
                  'Journal EISSN (online version)', 'Publisher', 
@@ -24,7 +29,7 @@ useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print versi
 doaj_data <- doaj_data %>% select(one_of(useful_cols_doaj))
 doaj_data <- doaj_data %>% 
   filter(`Full text language` == "English" | `Full text language` == "German") %>% #English only journals
-  filter(grepl("Medicine", `Subjects`)) %>% #Which categories to use?
+  filter(grepl("Medicine|Biology", `Subjects`)) %>% #Which categories to use?
   filter(is.na(`Submission fee amount`)) %>% #Take only journals without submission fee
   filter(`Currency` == "EUR - Euro" | `Currency` == "GBP - Pound Sterling" | `Currency` == "USD - US Dollar" | is.na(`Currency`))
 
@@ -77,7 +82,7 @@ doaj_data <- doaj_data %>%
 # PMC dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-pmc_data <- read_csv('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\PMC_journal_list.csv')
+pmc_data <- read_csv('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\PMC_journal_list_upd.csv')
 
 useful_cols_pmc <- c("Journal title", "pISSN", "eISSN", "Publisher")
 pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
@@ -89,11 +94,12 @@ pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
 
 scopus_data <- read_delim('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\Scopus_SJR_June_2017.txt', delim = "\t")
 
-useful_cols_scopus <- c("Print-ISSN", "E-ISSN", "2016 SJR")
+useful_cols_scopus <- c("Print-ISSN", "E-ISSN", "2016 SJR", "Active or Inactive")
 scopus_data <- scopus_data %>% select(one_of(useful_cols_scopus)) %>%
   rename(pISSN = `Print-ISSN`) %>%
   rename(eISSN = `E-ISSN`) %>%
-  rename(`SJR Impact` = `2016 SJR`)
+  rename(`SJR Impact` = `2016 SJR`) %>%
+  rename(Active_Inactive = `Active or Inactive`)
 
 #introduce '-' character in the middle of eISSN/pISSN to make it consistent with other data sources
 scopus_data$pISSN <- paste(substring(scopus_data$pISSN, 1, 4), substring(scopus_data$pISSN, 5, 8), sep = "-")
@@ -149,10 +155,19 @@ joined_data <- joined_data %>%
 SRJ_vec <- rep(NA, dim(joined_data)[1])
 for(i in 1:dim(joined_data)[1])
 {
-  SRJ_vec[i] <- get_SJR(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data)
+  SRJ_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "SJR Impact")
+}
+
+#add the Active/Inactive column and filter journals marked as inactive
+active_vec <- rep(NA, dim(joined_data)[1])
+for(i in 1:dim(joined_data)[1])
+{
+  active_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "Active_Inactive")
 }
 joined_data <- joined_data %>%
-  add_column(`SJR Impact` = SRJ_vec)
+  add_column(`SJR Impact` = SRJ_vec) %>%
+  add_column(`Active or Inactive` = active_vec) %>%
+  filter(`Active or Inactive` != "Inactive" | is.na(`Active or Inactive`))
 
 
 #JIF join

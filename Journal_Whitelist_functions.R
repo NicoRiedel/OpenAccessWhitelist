@@ -20,7 +20,7 @@ is_regional_journal <- function(journal_name)
                       "Anatolia", "Rambam Maimonides", "Sri Lanka",
                       "Bangabandhu Sheikh Mujib", "Irish", "Zahedan",
                       "Middle East", "Bangladesh", "Motriz", "Nordic",
-                      "Medicinski", "Medyczne", "Dānish")
+                      "Medicinski", "Medyczne", "Dānish", "Instituto")
   grep_results <- sapply(regional_terms, grepl, x=as.character(journal_name))
   
   return(any(grep_results))
@@ -54,37 +54,36 @@ subject_simplification <- function(subject)
 
 #define separate function instead of using regular join because the 
 #scopus eISSN as well as pISSN has to be checked against both DOAJ pISSN/eISSN
-get_SJR <- function(eISSN, pISSN, scopus_data)
+get_scopus_var <- function(eISSN, pISSN, scopus_data, varname)
 {
   #try al matches of pISSN/eISSN
-  ee_SJR <- get_SJR_sub(eISSN, scopus_data$eISSN, scopus_data$`SJR Impact`)
-  ep_SJR <- get_SJR_sub(eISSN, scopus_data$pISSN, scopus_data$`SJR Impact`)
-  pe_SJR <- get_SJR_sub(pISSN, scopus_data$eISSN, scopus_data$`SJR Impact`)
-  pp_SJR <- get_SJR_sub(pISSN, scopus_data$pISSN, scopus_data$`SJR Impact`)
+  ee_var <- get_var_sub(eISSN, scopus_data$eISSN, scopus_data[[varname]])
+  ep_var <- get_var_sub(eISSN, scopus_data$pISSN, scopus_data[[varname]])
+  pe_var <- get_var_sub(pISSN, scopus_data$eISSN, scopus_data[[varname]])
+  pp_var <- get_var_sub(pISSN, scopus_data$pISSN, scopus_data[[varname]])
   
   #get nonzero entry
-  SRJ_vec <- c(ee_SJR, ep_SJR, pe_SJR, pp_SJR)
-  SRJ_vec <- SRJ_vec[!is.na(SRJ_vec)]
-  if(length(SRJ_vec) == 0) {
-    SRJ <- NA
+  var_vec <- c(ee_var, ep_var, pe_var, pp_var)
+  var_vec <- var_vec[!is.na(var_vec)]
+  if(length(var_vec) == 0) {
+    var <- NA
   } else {
-    SRJ <- SRJ_vec[1]
+    var <- var_vec[1]
   }
   
-  return(SRJ)
+  return(var)
 }
 
-
-#calculates SJR for one combination of eISSN/pISSN
-get_SJR_sub <- function(ISSN, scopus_ISSN, scopus_SJR)
+#obtains var value for one combination of eISSN/pISSN
+get_var_sub <- function(ISSN, scopus_ISSN, scopus_var)
 {
   SRJ_idx <- match(ISSN, scopus_ISSN)
   if(is.na(SRJ_idx)) {
-    SJR <- NA
+    var <- NA
   } else {
-    SJR <- scopus_SJR[[SRJ_idx]]
+    var <- scopus_var[[SRJ_idx]]
   }
   
-  return(SJR)
+  return(var)
 }
 
