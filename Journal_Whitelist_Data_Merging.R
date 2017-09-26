@@ -52,6 +52,13 @@ doaj_data <- doaj_data %>%
 doaj_data <- doaj_data %>% mutate(`APC below 2000 EUR` = logical_to_yes_no(`APC in EUR` < 2000))
 
 
+#simplify subject categories
+subjects_simplified <- lapply(doaj_data$Subjects, subject_simplification)
+doaj_data <- doaj_data %>% 
+  add_column(`Subject category 1` = sapply(subjects_simplified, "[[", 1)) %>%
+  add_column(`Subject category 2` = sapply(subjects_simplified, "[[", 2))
+
+
 #rename some columns
 doaj_data <- doaj_data %>% 
   rename(pISSN = `Journal ISSN (print version)`) %>%
@@ -64,7 +71,7 @@ doaj_data <- doaj_data %>%
 doaj_data <- doaj_data %>% 
   select(-`Journal article submission fee`, -`Submission fee URL`, 
          -`Submission fee amount`, -`Submission fee currency`, 
-         -`APC drop`, -`APC amount`)
+         -`APC drop`, -`APC amount`, -Subjects)
 
 #----------------------------------------------------------------------------------------------------------------------------
 # PMC dataset
@@ -166,13 +173,13 @@ final_col <- c('Journal title.doaj', 'Journal Impact Factor', 'SJR Impact',
                'Journal article processing charges (APCs)', 'Currency',
                'APC in EUR', 'APC below 2000 EUR', 'APC information URL',
                "Average number of weeks between submission and publication",
-               "Subjects", "Journal license", 'Journal URL', 
-               'Publisher.doaj', "pISSN", "eISSN")
+               'Subject category 1', 'Subject category 2', 'Journal license', 
+               'Journal URL', 'Publisher.doaj', "pISSN", "eISSN")
 joined_data <- joined_data %>% 
   select(one_of(final_col)) %>%
   rename(`Journal title` = `Journal title.doaj`) %>% 
   rename(Publisher = `Publisher.doaj`) %>% 
-  arrange(Subjects)
+  arrange(`Subject category 1`, desc(`SJR Impact`))
 
 #filter duplicated journals (again, since some duplicates reappeared for some unknown reason)
 joined_data <- joined_data[!duplicated(joined_data$eISSN),]
