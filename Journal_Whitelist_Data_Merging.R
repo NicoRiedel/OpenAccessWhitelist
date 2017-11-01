@@ -1,10 +1,12 @@
-source('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\R-Code\\Journal_Whitelist_functions.R')
+folder <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\'
+
+source(paste0(folder, 'R-Code\\Journal_Whitelist_functions.R'))
 library(tidyverse)
 library(XML)
 
 #update datasets
-#download.file('https://doaj.org/csv', 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\DOAJ_journal_list_upd.csv')
-#download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\PMC_journal_list_upd.csv')
+#download.file('https://doaj.org/csv', paste0(folder, 'DOAJ_journal_list_upd.csv'))
+#download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', paste0(folder, 'PMC_journal_list_upd.csv'))
 
 #currency excange rates
 exchange_rates <- c(1.0, 0.8392, 1.1369,NA)
@@ -15,7 +17,7 @@ names(exchange_rates) <- c("EUR", "USD", "GBP", "-")
 # DOAJ dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-doaj_data <- read_csv('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\DOAJ_journal_list_upd.csv')
+doaj_data <- read_csv(paste0(folder, 'DOAJ_journal_list_upd.csv'))
 
 useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print version)', 
                  'Journal EISSN (online version)', 'Publisher', 
@@ -29,10 +31,13 @@ useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print versi
 doaj_data <- doaj_data %>% select(one_of(useful_cols_doaj))
 doaj_data <- doaj_data %>% 
   filter(`Full text language` == "English" | `Full text language` == "German") %>% #English only journals
-  filter(grepl("Medicine|Biology", `Subjects`)) %>% #Which categories to use?
+  filter(grepl("Medicine|Biology", `Subjects`)) %>% 
+  filter(!grepl("Agriculture|Plant culture", `Subjects`)) %>% #Which categories to use?
   filter(is.na(`Submission fee amount`)) %>% #Take only journals without submission fee
   filter(`Currency` == "EUR - Euro" | `Currency` == "GBP - Pound Sterling" | `Currency` == "USD - US Dollar" | is.na(`Currency`))
 
+#biology categories to exclude:
+#Agriculture, Plant culture
 
 #filter rows that do not easily work with the dplyr filter
 doaj_data <- doaj_data[!duplicated(doaj_data$`Journal EISSN (online version)`),] #filter duplicated journals
@@ -53,8 +58,8 @@ doaj_data[noAPC_idx, "APC"] <- doaj_data[noAPC_idx, "Journal article processing 
 
 #create column with APCs converted to EUR
 doaj_data <- doaj_data %>% 
-  mutate(`APC in EUR` = round(exchange_rates[Currency] * `APC amount`))
-doaj_data <- doaj_data %>% mutate(`APC below 2000 EUR` = logical_to_yes_no(`APC in EUR` < 2000))
+  mutate(`APC in EUR (including 19% taxes)` = round(exchange_rates[Currency] * `APC amount` * 1.19)) %>%
+  mutate(`APC below 2000 EUR` = logical_to_yes_no(`APC in EUR (including 19% taxes)` < 2000))
 
 
 #simplify subject categories
@@ -82,7 +87,7 @@ doaj_data <- doaj_data %>%
 # PMC dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-pmc_data <- read_csv('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\PMC_journal_list_upd.csv')
+pmc_data <- read_csv(paste0(folder, 'PMC_journal_list_upd.csv'))
 
 useful_cols_pmc <- c("Journal title", "pISSN", "eISSN", "Publisher")
 pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
@@ -92,7 +97,7 @@ pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
 # Scopus dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-scopus_data <- read_delim('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\Scopus_SJR_June_2017.txt', delim = "\t")
+scopus_data <- read_delim(paste0(folder, 'Scopus_SJR_June_2017.txt'), delim = "\t")
 
 useful_cols_scopus <- c("Print-ISSN", "E-ISSN", "2016 SJR", "Active or Inactive")
 scopus_data <- scopus_data %>% select(one_of(useful_cols_scopus)) %>%
@@ -109,7 +114,7 @@ scopus_data$eISSN <- paste(substring(scopus_data$eISSN, 1, 4), substring(scopus_
 # journal impact factor dataset - not clear if we will need it
 #----------------------------------------------------------------------------------------------------------------------------
 
-jif_data <- read_csv('T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\Journal_Impact_Factor.csv')
+jif_data <- read_csv(paste0(folder, 'Journal_Impact_Factor.csv'))
 
 useful_cols_jif <- c("Full Journal Title", "Journal Impact Factor")
 
@@ -186,7 +191,7 @@ joined_data <- joined_data %>%
 #rearrange columns
 final_col <- c('Journal title.doaj', 'Journal Impact Factor', 'SJR Impact',
                'Journal article processing charges (APCs)', 'Currency',
-               'APC in EUR', 'APC below 2000 EUR', 'APC information URL',
+               'APC in EUR (including 19% taxes)', 'APC below 2000 EUR', 'APC information URL',
                "Average number of weeks between submission and publication",
                'Subject category 1', 'Subject category 2', 'Journal license', 
                'Journal URL', 'Publisher.doaj', "pISSN", "eISSN")
@@ -199,5 +204,5 @@ joined_data <- joined_data %>%
 #filter duplicated journals (again, since some duplicates reappeared for some unknown reason)
 joined_data <- joined_data[!duplicated(joined_data$eISSN),]
 
-save_filename <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\Journal_Whitelist_Table.csv'
+save_filename <- paste0(folder, 'Journal_Whitelist_Table.csv')
 write_csv(joined_data, save_filename)

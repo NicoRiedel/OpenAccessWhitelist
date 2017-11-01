@@ -20,7 +20,8 @@ is_regional_journal <- function(journal_name)
                       "Anatolia", "Rambam Maimonides", "Sri Lanka",
                       "Bangabandhu Sheikh Mujib", "Irish", "Zahedan",
                       "Middle East", "Bangladesh", "Motriz", "Nordic",
-                      "Medicinski", "Medyczne", "Dānish", "Instituto")
+                      "Medicinski", "Medyczne", "Dānish", "Instituto",
+                      "Egyptian")
   grep_results <- sapply(regional_terms, grepl, x=as.character(journal_name))
   
   return(any(grep_results))
