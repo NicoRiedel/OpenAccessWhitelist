@@ -9,7 +9,7 @@ library(XML)
 #download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', paste0(folder, 'PMC_journal_list_upd.csv'))
 
 #currency excange rates
-exchange_rates <- c(1.0, 0.8392, 1.1369,NA)
+exchange_rates <- c(1.0, 0.8392, 1.1369, NA)
 names(exchange_rates) <- c("EUR", "USD", "GBP", "-")
 
 
@@ -99,7 +99,7 @@ pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
 
 scopus_data <- read_delim(paste0(folder, 'Scopus_SJR_June_2017.txt'), delim = "\t")
 
-useful_cols_scopus <- c("Print-ISSN", "E-ISSN", "2016 SJR", "Active or Inactive")
+useful_cols_scopus <- c("Source Title", "Print-ISSN", "E-ISSN", "2016 SJR", "Active or Inactive")
 scopus_data <- scopus_data %>% select(one_of(useful_cols_scopus)) %>%
   rename(pISSN = `Print-ISSN`) %>%
   rename(eISSN = `E-ISSN`) %>%
@@ -109,6 +109,11 @@ scopus_data <- scopus_data %>% select(one_of(useful_cols_scopus)) %>%
 #introduce '-' character in the middle of eISSN/pISSN to make it consistent with other data sources
 scopus_data$pISSN <- paste(substring(scopus_data$pISSN, 1, 4), substring(scopus_data$pISSN, 5, 8), sep = "-")
 scopus_data$eISSN <- paste(substring(scopus_data$eISSN, 1, 4), substring(scopus_data$eISSN, 5, 8), sep = "-")
+
+#load the additonal table with the quartile information and join into first scopus dataset
+scopus_quartile <- read_delim(paste0(folder, 'Scopus_SJR_2016_Quartile.txt'), delim = "\t")
+scopus_data <- scopus_data %>% 
+  left_join(scopus_quartile, by = c("Source Title" = "Title"))
 
 #----------------------------------------------------------------------------------------------------------------------------
 # journal impact factor dataset - not clear if we will need it
@@ -157,10 +162,10 @@ joined_data <- joined_data %>%
 
 #as the scopus eISSN as well as pISSN has to be checked against both DOAJ pISSN/eISSN
 #use self-defined function instead of regular join
-SRJ_vec <- rep(NA, dim(joined_data)[1])
+SJR_vec <- rep(NA, dim(joined_data)[1])
 for(i in 1:dim(joined_data)[1])
 {
-  SRJ_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "SJR Impact")
+  SJR_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "SJR Impact")
 }
 
 #add the Active/Inactive column and filter journals marked as inactive
@@ -169,9 +174,18 @@ for(i in 1:dim(joined_data)[1])
 {
   active_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "Active_Inactive")
 }
+
+#add the SJR quartile column
+SJR_quartile_vec <- rep(NA, dim(joined_data)[1])
+for(i in 1:dim(joined_data)[1])
+{
+  SJR_quartile_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "SJR Best Quartile")
+}
+
 joined_data <- joined_data %>%
-  add_column(`SJR Impact` = SRJ_vec) %>%
+  add_column(`SJR Impact` = SJR_vec) %>%
   add_column(`Active or Inactive` = active_vec) %>%
+  add_column(`SJR Subject Category Best Quartile` = SJR_quartile_vec) %>%
   filter(`Active or Inactive` != "Inactive" | is.na(`Active or Inactive`))
 
 
@@ -190,6 +204,7 @@ joined_data <- joined_data %>%
 
 #rearrange columns
 final_col <- c('Journal title.doaj', 'Journal Impact Factor', 'SJR Impact',
+               'SJR Subject Category Best Quartile',
                'Journal article processing charges (APCs)', 'Currency',
                'APC in EUR (including 19% taxes)', 'APC below 2000 EUR', 'APC information URL',
                "Average number of weeks between submission and publication",
