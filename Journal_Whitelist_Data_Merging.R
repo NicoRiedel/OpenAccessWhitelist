@@ -58,7 +58,12 @@ doaj_data[noAPC_idx, "APC"] <- doaj_data[noAPC_idx, "Journal article processing 
 
 #create column with APCs converted to EUR
 doaj_data <- doaj_data %>% 
-  mutate(`APC in EUR (including 19% taxes)` = round(exchange_rates[Currency] * `APC amount` * 1.19)) %>%
+  mutate(`APC in EUR (including 19% taxes)` = round(exchange_rates[Currency] * `APC amount` * 1.19)) 
+
+#for those journals without APCs set coverted amount to 0 Eur
+no_APC_journal <- doaj_data$`Journal article processing charges (APCs)` == "No"
+doaj_data$`APC in EUR (including 19% taxes)`[no_APC_journal] <- 0
+doaj_data <- doaj_data %>% 
   mutate(`APC below 2000 EUR` = logical_to_yes_no(`APC in EUR (including 19% taxes)` < 2000))
 
 
