@@ -9,8 +9,8 @@ library(XML)
 #download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', paste0(folder, 'PMC_journal_list_upd.csv'))
 
 #currency excange rates
-exchange_rates <- c(1.0, 0.8392, 1.1369, NA)
-names(exchange_rates) <- c("EUR", "USD", "GBP", "-")
+exchange_rates <- c(1.0, 0.8392, 1.1369, 0.8589, NA)
+names(exchange_rates) <- c("EUR", "USD", "GBP", "CHF", "-")
 
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ doaj_data <- doaj_data %>%
   filter(grepl("Medicine|Biology", `Subjects`)) %>% 
   filter(!grepl("Agriculture|Plant culture", `Subjects`)) %>% #Which categories to use?
   filter(is.na(`Submission fee amount`)) %>% #Take only journals without submission fee
-  filter(`Currency` == "EUR - Euro" | `Currency` == "GBP - Pound Sterling" | `Currency` == "USD - US Dollar" | is.na(`Currency`))
+  filter(`Currency` == "EUR - Euro" | `Currency` == "GBP - Pound Sterling" | `Currency` == "USD - US Dollar" | `Currency` == "CHF - Swiss Franc" | is.na(`Currency`))
 
 #biology categories to exclude:
 #Agriculture, Plant culture
@@ -133,6 +133,31 @@ jif_data <- jif_data %>%
   mutate(`Full Journal Title` = tolower(`Full Journal Title`))
 
 
+#calculate the JIF quartiles from the individual WoS Categories
+WoS_folder <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\WoS Categories\\'
+WoS_files <- list.files(WoS_folder)
+
+WoS_list <- list()
+for(file in WoS_files)
+{
+  WoS_category <- read_csv(paste0(WoS_folder, file), skip = 1)
+  WoS_category <- head(WoS_category, -2)
+  WoS_category <- WoS_category %>%
+    add_column(`JIF category quartiles` = calculate_quartiles(dim(WoS_category)[1]))
+  WoS_list[[file]] <- WoS_category
+}
+
+WoS_quartiles <- do.call(rbind,WoS_list)
+WoS_quartiles <- WoS_quartiles %>%
+  mutate(`Full Journal Title` = tolower(`Full Journal Title`)) %>%
+  distinct(`Full Journal Title`, .keep_all = TRUE) %>%
+  select(`Full Journal Title`, `JIF category quartiles`)
+
+#join JIF quartiles into jif dataset
+jif_data <- jif_data %>%
+  left_join(WoS_quartiles, by = "Full Journal Title") %>%
+  mutate(`Full Journal Title` = gsub("[[:blank:]]|[[:punct:]]", "", `Full Journal Title`))
+
 #----------------------------------------------------------------------------------------------------------------------------
 # join datasets
 #----------------------------------------------------------------------------------------------------------------------------
@@ -198,7 +223,7 @@ joined_data <- joined_data %>%
 
 #add journal impact factor column
 joined_data <- joined_data %>%
-  mutate(`Journal title match` = tolower(`Journal title.doaj`)) %>%
+  mutate(`Journal title match` = gsub("[[:blank:]]|[[:punct:]]", "", tolower(`Journal title.doaj`)) ) %>%
   left_join(jif_data, by = c("Journal title match" = "Full Journal Title")) %>%
   select(-`Journal title match`)
   
@@ -208,8 +233,8 @@ joined_data <- joined_data %>%
 #----------------------------------------------------------------------------------------------------------------------------
 
 #rearrange columns
-final_col <- c('Journal title.doaj', 'Journal Impact Factor', 'SJR Impact',
-               'SJR Subject Category Best Quartile',
+final_col <- c('Journal title.doaj', 'Journal Impact Factor', 'JIF category quartiles', 
+               'SJR Impact', 'SJR Subject Category Best Quartile',
                'Journal article processing charges (APCs)', 'Currency',
                'APC in EUR (including 19% taxes)', 'APC below 2000 EUR', 'APC information URL',
                "Average number of weeks between submission and publication",

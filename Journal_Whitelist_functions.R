@@ -75,6 +75,7 @@ get_scopus_var <- function(eISSN, pISSN, scopus_data, varname)
   return(var)
 }
 
+
 #obtains var value for one combination of eISSN/pISSN
 get_var_sub <- function(ISSN, scopus_ISSN, scopus_var)
 {
@@ -87,4 +88,18 @@ get_var_sub <- function(ISSN, scopus_ISSN, scopus_var)
   
   return(var)
 }
+
+
+#calculates JIF quartiles
+calculate_quartiles <- function(n)
+{
+  q_vec <- rep("", n)
+  q_vec[1:ceiling(n/4)] <- "Q1"
+  q_vec[(ceiling(n/4) + 1):ceiling(n/2)] <- "Q2"
+  q_vec[(ceiling(n/2) + 1):ceiling(n*3/4)] <- "Q3"
+  q_vec[(ceiling(n*3/4) + 1):n] <- "Q4"
+  
+  return(q_vec)
+}
+
 
