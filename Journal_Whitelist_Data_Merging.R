@@ -3,14 +3,16 @@ folder <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\'
 source(paste0(folder, 'R-Code\\Journal_Whitelist_functions.R'))
 library(tidyverse)
 library(XML)
+library(jsonlite)
 
 #update datasets
-#download.file('https://doaj.org/csv', paste0(folder, 'DOAJ_journal_list_upd.csv'))
-#download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', paste0(folder, 'PMC_journal_list_upd.csv'))
+download.file('https://doaj.org/csv', paste0(folder, 'DOAJ_journal_list_upd.csv'))
+download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', paste0(folder, 'PMC_journal_list_upd.csv'))
 
 #currency excange rates
-exchange_rates <- c(1.0, 0.8392, 1.1369, 0.8589, NA)
-names(exchange_rates) <- c("EUR", "USD", "GBP", "CHF", "-")
+exchange_rates <- fromJSON(readLines("https://api.fixer.io/latest?symbols=USD,GBP,CHF"))
+exchange_rates <- c(1.0, unlist(exchange_rates$rates) , NA)
+names(exchange_rates) <- c("EUR", "CHF", "GBP", "USD", "-")
 
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -31,7 +33,7 @@ useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print versi
 doaj_data <- doaj_data %>% select(one_of(useful_cols_doaj))
 doaj_data <- doaj_data %>% 
   filter(`Full text language` == "English" | `Full text language` == "German") %>% #English only journals
-  filter(grepl("Medicine|Biology", `Subjects`)) %>% 
+  filter(grepl("Medicine|Biology|Biotechnology", `Subjects`)) %>% 
   filter(!grepl("Agriculture|Plant culture", `Subjects`)) %>% #Which categories to use?
   filter(is.na(`Submission fee amount`)) %>% #Take only journals without submission fee
   filter(`Currency` == "EUR - Euro" | `Currency` == "GBP - Pound Sterling" | `Currency` == "USD - US Dollar" | `Currency` == "CHF - Swiss Franc" | is.na(`Currency`))
@@ -40,7 +42,6 @@ doaj_data <- doaj_data %>%
 #Agriculture, Plant culture
 
 #filter rows that do not easily work with the dplyr filter
-doaj_data <- doaj_data[!duplicated(doaj_data$`Journal EISSN (online version)`),] #filter duplicated journals
 doaj_data <- doaj_data[!sapply(doaj_data$`Journal title`, is_regional_journal),]
 
 
@@ -120,43 +121,6 @@ scopus_quartile <- read_delim(paste0(folder, 'Scopus_SJR_2016_Quartile.txt'), de
 scopus_data <- scopus_data %>% 
   left_join(scopus_quartile, by = c("Source Title" = "Title"))
 
-#----------------------------------------------------------------------------------------------------------------------------
-# journal impact factor dataset - not clear if we will need it
-#----------------------------------------------------------------------------------------------------------------------------
-
-jif_data <- read_csv(paste0(folder, 'Journal_Impact_Factor.csv'))
-
-useful_cols_jif <- c("Full Journal Title", "Journal Impact Factor")
-
-jif_data <- jif_data %>% select(one_of(useful_cols_jif))
-jif_data <- jif_data %>%
-  mutate(`Full Journal Title` = tolower(`Full Journal Title`))
-
-
-#calculate the JIF quartiles from the individual WoS Categories
-WoS_folder <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\WoS Categories\\'
-WoS_files <- list.files(WoS_folder)
-
-WoS_list <- list()
-for(file in WoS_files)
-{
-  WoS_category <- read_csv(paste0(WoS_folder, file), skip = 1)
-  WoS_category <- head(WoS_category, -2)
-  WoS_category <- WoS_category %>%
-    add_column(`JIF category quartiles` = calculate_quartiles(dim(WoS_category)[1]))
-  WoS_list[[file]] <- WoS_category
-}
-
-WoS_quartiles <- do.call(rbind,WoS_list)
-WoS_quartiles <- WoS_quartiles %>%
-  mutate(`Full Journal Title` = tolower(`Full Journal Title`)) %>%
-  distinct(`Full Journal Title`, .keep_all = TRUE) %>%
-  select(`Full Journal Title`, `JIF category quartiles`)
-
-#join JIF quartiles into jif dataset
-jif_data <- jif_data %>%
-  left_join(WoS_quartiles, by = "Full Journal Title") %>%
-  mutate(`Full Journal Title` = gsub("[[:blank:]]|[[:punct:]]", "", `Full Journal Title`))
 
 #----------------------------------------------------------------------------------------------------------------------------
 # join datasets
@@ -219,21 +183,12 @@ joined_data <- joined_data %>%
   filter(`Active or Inactive` != "Inactive" | is.na(`Active or Inactive`))
 
 
-#JIF join
-
-#add journal impact factor column
-joined_data <- joined_data %>%
-  mutate(`Journal title match` = gsub("[[:blank:]]|[[:punct:]]", "", tolower(`Journal title.doaj`)) ) %>%
-  left_join(jif_data, by = c("Journal title match" = "Full Journal Title")) %>%
-  select(-`Journal title match`)
-  
-
 #----------------------------------------------------------------------------------------------------------------------------
 # save current version of spreadsheet
 #----------------------------------------------------------------------------------------------------------------------------
 
 #rearrange columns
-final_col <- c('Journal title.doaj', 'Journal Impact Factor', 'JIF category quartiles', 
+final_col <- c('Journal title.doaj', 
                'SJR Impact', 'SJR Subject Category Best Quartile',
                'Journal article processing charges (APCs)', 'Currency',
                'APC in EUR (including 19% taxes)', 'APC below 2000 EUR', 'APC information URL',
@@ -249,5 +204,5 @@ joined_data <- joined_data %>%
 #filter duplicated journals (again, since some duplicates reappeared for some unknown reason)
 joined_data <- joined_data[!duplicated(joined_data$eISSN),]
 
-save_filename <- paste0(folder, 'Journal_Whitelist_Table.csv')
+save_filename <- paste0(folder, 'Published Versions//Journal_Whitelist_Table_', Sys.Date(), '.csv')
 write_csv(joined_data, save_filename)

@@ -21,7 +21,8 @@ is_regional_journal <- function(journal_name)
                       "Bangabandhu Sheikh Mujib", "Irish", "Zahedan",
                       "Middle East", "Bangladesh", "Motriz", "Nordic",
                       "Medicinski", "Medyczne", "Dānish", "Instituto",
-                      "Egyptian")
+                      "Egyptian", "Balkan", "Turkish", "Istanbul",
+                      "Brasileira", "Upsala", "stanbul", "Sahara")
   grep_results <- sapply(regional_terms, grepl, x=as.character(journal_name))
   
   return(any(grep_results))
@@ -90,7 +91,7 @@ get_var_sub <- function(ISSN, scopus_ISSN, scopus_var)
 }
 
 
-#calculates JIF quartiles
+#calculates JIF quartiles (beware that quartile definition is ambiguous)
 calculate_quartiles <- function(n)
 {
   q_vec <- rep("", n)
