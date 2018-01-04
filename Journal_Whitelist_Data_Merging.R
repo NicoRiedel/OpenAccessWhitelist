@@ -1,13 +1,19 @@
-folder <- 'T:\\Dokumente\\Projekte\\Open Access Journals\\Journal Whitelist\\'
+folder <- 'S:\\Partner\\BIH\\QUEST\\CENTER\\3 Service Infra Governance\\Open Access\\Whitelist Open Access Journals\\'
 
 source(paste0(folder, 'R-Code\\Journal_Whitelist_functions.R'))
 library(tidyverse)
 library(XML)
 library(jsonlite)
 
+#necessary datasets (only Scopus data needs to be provided, the others are automatically downloaded to that file)
+doaj_filename <- paste0(folder, 'Datasets\\DOAJ_journal_list_upd.csv')
+pmc_filename <- paste0(folder, 'Datasets\\PMC_journal_list_upd.csv')
+sjr_filename <- paste0(folder, 'Datasets\\Scopus_SJR_June_2017.txt')
+sjr_quartiles <- paste0(folder, 'Datasets\\Scopus_SJR_2016_Quartile.txt')
+
 #update datasets
-download.file('https://doaj.org/csv', paste0(folder, 'DOAJ_journal_list_upd.csv'))
-download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', paste0(folder, 'PMC_journal_list_upd.csv'))
+download.file('https://doaj.org/csv', doaj_filename)
+download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', pmc_filename)
 
 #currency excange rates
 exchange_rates <- fromJSON(readLines("https://api.fixer.io/latest?symbols=USD,GBP,CHF"))
@@ -19,15 +25,15 @@ names(exchange_rates) <- c("EUR", "CHF", "GBP", "USD", "-")
 # DOAJ dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-doaj_data <- read_csv(paste0(folder, 'DOAJ_journal_list_upd.csv'))
+doaj_data <- read_csv(doaj_filename)
 
 useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print version)', 
-                 'Journal EISSN (online version)', 'Publisher', 
-                 'Journal article processing charges (APCs)', 'APC information URL', 
-                 'APC amount', 'Currency', "Journal article submission fee",
-                 "Submission fee URL", "Submission fee amount", "Submission fee currency",
-                 "Full text language", "Average number of weeks between submission and publication",
-                 "Journal license", "Subjects")
+                      'Journal EISSN (online version)', 'Publisher', 
+                      'Journal article processing charges (APCs)', 'APC information URL', 
+                      'APC amount', 'Currency', "Journal article submission fee",
+                      "Submission fee URL", "Submission fee amount", "Submission fee currency",
+                      "Full text language", "Average number of weeks between submission and publication",
+                      "Journal license", "Subjects")
 
 #filter rows
 doaj_data <- doaj_data %>% select(one_of(useful_cols_doaj))
@@ -93,7 +99,7 @@ doaj_data <- doaj_data %>%
 # PMC dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-pmc_data <- read_csv(paste0(folder, 'PMC_journal_list_upd.csv'))
+pmc_data <- read_csv(pmc_filename)
 
 useful_cols_pmc <- c("Journal title", "pISSN", "eISSN", "Publisher")
 pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
@@ -103,7 +109,7 @@ pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
 # Scopus dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-scopus_data <- read_delim(paste0(folder, 'Scopus_SJR_June_2017.txt'), delim = "\t")
+scopus_data <- read_delim(sjr_filename, delim = "\t")
 
 useful_cols_scopus <- c("Source Title", "Print-ISSN", "E-ISSN", "2016 SJR", "Active or Inactive")
 scopus_data <- scopus_data %>% select(one_of(useful_cols_scopus)) %>%
@@ -117,7 +123,7 @@ scopus_data$pISSN <- paste(substring(scopus_data$pISSN, 1, 4), substring(scopus_
 scopus_data$eISSN <- paste(substring(scopus_data$eISSN, 1, 4), substring(scopus_data$eISSN, 5, 8), sep = "-")
 
 #load the additonal table with the quartile information and join into first scopus dataset
-scopus_quartile <- read_delim(paste0(folder, 'Scopus_SJR_2016_Quartile.txt'), delim = "\t")
+scopus_quartile <- read_delim(sjr_quartiles, delim = "\t")
 scopus_data <- scopus_data %>% 
   left_join(scopus_quartile, by = c("Source Title" = "Title"))
 
@@ -146,7 +152,7 @@ joined_data <- joined_data_pISSN %>%
 joined_data <- joined_data %>%
   mutate(is_PMC_listed = !is.na(`Journal title.pmc`)) %>%
   mutate(is_PMC_listed = logical_to_yes_no(is_PMC_listed)) 
-  
+
 #only select PMC-listed journals?
 joined_data <- joined_data %>%
   filter(is_PMC_listed == "yes")
