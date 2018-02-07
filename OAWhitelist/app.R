@@ -21,22 +21,6 @@ names(OA_Whitelist) <- c("Journal title", "SCImago Journal Rank (SJR)", "SJR Sub
                          "Journal license", "Journal URL",
                          "Publisher", "pISSN", "eISSN")
 
-# ui <- fluidPage(
-#   titlePanel("Open Access Journal Whitelist"),
-#   sidebarLayout(
-#     sidebarPanel(
-#       selectInput(inputId = "subjects",
-#                   label = "Subject",
-#                   choices = c("All", unique(OA_Whitelist$`Subject category`))),
-#       checkboxGroupInput("show_vars", "Columns to show:",
-#                          names(OA_Whitelist), selected = names(OA_Whitelist)[c(-8, -11, -13, -15, -16)])
-#     ),
-#     mainPanel(
-#       DT::dataTableOutput("whitelist")
-#     )
-#   )
-# )
-
 ui <- fluidPage(
   fluidRow(
     column(width = 3,
@@ -47,9 +31,6 @@ ui <- fluidPage(
            h4("Contains biomedical open access journals that are listed on the Directory of Open Access Journals (DOAJ) and Pubmed Central.", align = "center"),
            div("Version date: 30.01.2018. This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/3.0/.", align = "center"),
            div("Authors: Bernard, René (Concept); Liebenau, Lisa (Concept); Riedel, Nico (Concept, Technical implementation)", align = "center")
-           
-           #conditionalPanel(condition = "input.manual == true",
-            #                div("This ‘Open Access Journal Whitelist’ comprises international biomedical open access journals that obey certain quality standards. All journals are listed by the Directory of Open Access Journals (DOAJ) and Pubmed Central (PMC). DOAJ ensures high quality standards for journals; individual journals have to apply at DOAJ and are checked against a list of quality criteria. PMC stores the full-text version of open access articles and increases the visibility of research in that way. Only journals that are assigned to the DOAJ subject categories ‘Medicine’ or ‘Biology’ and that have English or German as full-text language are included."))
     )
   ),
   sidebarLayout(position = "left", fluid = TRUE,
@@ -81,10 +62,6 @@ ui <- fluidPage(
                 mainPanel(DT::dataTableOutput("whitelist")))
 )
 
-#Contains biomedical open access journals that are listed on the Directory of Open Access Journals (DOAJ) and Pubmed Central
-#Version date: 16.01.2018. This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/3.0/.  
-#Authors: Bernard, René (Concept); Liebenau, Lisa (Concept); Riedel, Nico (Concept, Technical implementation)
-
 server <- function(input, output) {
   # choose columns to display
   output$whitelist <- DT::renderDataTable({
@@ -101,36 +78,6 @@ server <- function(input, output) {
                                                    list(className = 'dt-left', targets = 6),
                                                    list(className = 'dt-left', targets = 8))))
   })
-  
-  # #load Quest logo
-  # output$QuestLogo <- renderImage({
-  # 
-  #   # When input$n is 3, filename is ./images/image3.jpeg
-  #   filename <- normalizePath(file.path('./www',
-  #                                       "Quest_Wortmarke_rgb.png"))
-  #   
-  #   # Return a list containing the filename and alt text
-  #   list(src = filename,
-  #        alt = paste("Image number", input$n),
-  #        width = 280,
-  #        height = 183)
-  #   
-  # }, deleteFile = FALSE)
-
-  # #count number of visits
-  # output$counter <- renderText({
-  #   if(!file.exists("counter.Rdata")) {
-  #     counter <- 0
-  #   } else {
-  #     load(file = "counter.Rdata")
-  #   }
-  #   counter <- counter + 1
-  #   save(counter, file="counter.Rdata")
-  #   paste0("Number of visits: ", counter)
-  # })
-  
-  cat(paste0("App visit at: ", Sys.time(), "\n"))
-
 }
 
 shinyApp(ui, server)
