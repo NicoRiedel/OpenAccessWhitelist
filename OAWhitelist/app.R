@@ -11,7 +11,9 @@ library(shiny)
 library(DT)
 library(tidyr)
 
-OA_Whitelist <- readRDS("data/Journal_Whitelist_Table_2018-01-30.rds")
+if (!interactive()) sink(stderr(), type = "output")
+
+OA_Whitelist <- readRDS("data/Journal_Whitelist_Table_2018-02-22.rds")
 names(OA_Whitelist) <- c("Journal title", "SCImago Journal Rank (SJR)", "SJR Subject Category Quartile",
                          "Journal article processing charges (APCs)", "Currency",
                          "APC in EUR (incl. 19% taxes)",
@@ -29,8 +31,9 @@ ui <- fluidPage(
     column(width = 9,
            h1("Open Access Journal Whitelist", align = "center"),
            h4("Contains biomedical open access journals that are listed on the Directory of Open Access Journals (DOAJ) and Pubmed Central.", align = "center"),
-           div("Version date: 30.01.2018. This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/3.0/.", align = "center"),
-           div("Authors: Bernard, René (Concept); Liebenau, Lisa (Concept); Riedel, Nico (Concept, Technical implementation)", align = "center")
+           div("This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/3.0/.", align = "center"),
+           div("Authors: Bernard, René (Concept); Liebenau, Lisa (Concept); Riedel, Nico (Concept, Technical implementation)", align = "center"),
+           div("  ")
     )
   ),
   sidebarLayout(position = "left", fluid = TRUE,
@@ -56,8 +59,10 @@ ui <- fluidPage(
                            as they do not fund articles above this sum. 
                            Due to either outdated APC information, variations in the currency exchange rates or 
                            due to differences in taxing for journals from different countries the information if an APC lies below 2000 EUR might be inaccurate. 
-                           Before deciding on a journal, please check the journal costs yourself (using the APC info link provided in the next column).'),
-                  width = 2
+                           Before deciding on a journal, please check the journal costs yourself (using the APC info link provided in the next column). 
+                           Some of the publishers have agreed on special terms with the Charité library (denoted as \'yes, library special terms\') 
+                           such that the journals of these publishers indeed stay below an APC of 2000€.'),
+                  width = 3
                 ),
                 mainPanel(DT::dataTableOutput("whitelist")))
 )
@@ -65,19 +70,31 @@ ui <- fluidPage(
 server <- function(input, output) {
   # choose columns to display
   output$whitelist <- DT::renderDataTable({
-    DT::datatable(if(input$subjects == "All") {
+    DT::datatable( data = if(input$subjects == "All") {
                     OA_Whitelist[, input$show_vars, drop = FALSE]
                   } else {
                     OA_Whitelist[OA_Whitelist[["Subject category"]] == input$subjects,][, input$show_vars, drop = FALSE]
-                  }, 
+                  },
+                  extensions = 'Buttons',
                   filter = 'top',
-                  options = list(orderClasses = TRUE, 
+                  options = list(dom = 'Blfrtip',
+                                 buttons = 
+                                   list("copy", list(
+                                     extend = "collection"
+                                     , buttons = c("csv", "excel")
+                                     , text = "Download"
+                                   ) ),
+                                 orderClasses = TRUE, 
                                  pageLength = 20,
-                                 lengthMenu = c(10, 20, 50, 100, 1000),
+                                 lengthMenu = list(c(10, 20, 50, 100, -1),
+                                                  c(10, 20, 50, 100, "All")),
                                  columnDefs = list(list(className = 'dt-left', targets = 2),
                                                    list(className = 'dt-left', targets = 6),
-                                                   list(className = 'dt-left', targets = 8))))
+                                                   list(className = 'dt-left', targets = 8))
+                                 ))
   })
+  
+  print(paste0("App visit at: ", Sys.time()))
 }
 
 shinyApp(ui, server)
