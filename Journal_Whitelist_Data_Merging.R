@@ -65,7 +65,7 @@ doaj_data[noAPC_idx, "APC"] <- doaj_data[noAPC_idx, "Journal article processing 
 
 #create column with APCs converted to EUR
 doaj_data <- doaj_data %>% 
-  mutate(`APC in EUR (including 19% taxes)` = round(exchange_rates[Currency] * `APC amount` * 1.19)) 
+  mutate(`APC in EUR (including 19% taxes)` = round( (1/exchange_rates[Currency]) * `APC amount` * 1.19)) 
 
 #for those journals without APCs set coverted amount to 0 Eur
 no_APC_journal <- doaj_data$`Journal article processing charges (APCs)` == "No"
@@ -73,6 +73,9 @@ doaj_data$`APC in EUR (including 19% taxes)`[no_APC_journal] <- 0
 doaj_data <- doaj_data %>% 
   mutate(`APC below 2000 EUR` = logical_to_yes_no(`APC in EUR (including 19% taxes)` < 2000))
 
+#add information on special terms of the Charite library for specific journals
+frontiers_journals <- doaj_data$Publisher == "Frontiers Media S.A."
+doaj_data[frontiers_journals,][["APC below 2000 EUR"]] <- "yes, library special terms"
 
 #simplify subject categories
 subjects_simplified <- lapply(doaj_data$Subjects, subject_simplification)
@@ -212,3 +215,6 @@ joined_data <- joined_data[!duplicated(joined_data$eISSN),]
 
 save_filename <- paste0(folder, 'Published Versions//Journal_Whitelist_Table_', Sys.Date(), '.csv')
 write_csv(joined_data, save_filename)
+
+save_filename_RDS <- paste0(folder, 'Published Versions//Journal_Whitelist_Table_', Sys.Date(), '.RDS')
+saveRDS(joined_data, save_filename_RDS)
