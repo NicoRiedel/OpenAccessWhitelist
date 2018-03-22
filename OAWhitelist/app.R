@@ -11,7 +11,7 @@ library(shiny)
 library(DT)
 library(tidyr)
 
-if (!interactive()) sink(stderr(), type = "output")
+#if (!interactive()) sink(stderr(), type = "output")
 
 OA_Whitelist <- readRDS("data/Journal_Whitelist_Table_2018-02-22.rds")
 names(OA_Whitelist) <- c("Journal title", "SCImago Journal Rank (SJR)", "SJR Subject Category Quartile",
@@ -94,7 +94,7 @@ server <- function(input, output) {
                                  ))
   })
   
-  print(paste0("App visit at: ", Sys.time()))
+  write(paste0("App visit at: ", Sys.time()), "/var/log/shiny-server/visitors.txt", append = TRUE)
 }
 
 shinyApp(ui, server)
