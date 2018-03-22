@@ -1,3 +1,15 @@
+#currency excange rates for conversion of different API costs to 
+get_exchange_rate <- function(currency_from, currency_to)
+{
+  exchange_rate <- paste0("https://free.currencyconverterapi.com/api/v5/convert?q=",
+                          currency_to, "_", currency_from, "&compact=y") %>%
+    readLines(warn = FALSE) %>%
+    fromJSON() %>%
+    unlist()
+  
+  return(exchange_rate)
+}
+
 #transforms logical columns to yes/no columns
 logical_to_yes_no <- function(logic_vec) 
 {
@@ -6,7 +18,11 @@ logical_to_yes_no <- function(logic_vec)
 }
 
 
-#checks if any of the regional keywords are contained in the journal name
+#there are some regionally focused journals that will not be that relevant
+#for our scientists in Berlin
+#non-comprehensive list of regional terms to filter those regional journals
+#some of those excluded journals might still have a more international focus
+#but I did not check all journals individually
 is_regional_journal <- function(journal_name)
 {
   regional_terms <- c("Korean", "Canadian", "Oman", "Libyan", "Iran",
