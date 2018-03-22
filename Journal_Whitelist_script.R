@@ -241,5 +241,5 @@ if(!dir.exists('Table/')) {
 save_filename <- paste0('Table/Journal_Whitelist_Table_', Sys.Date(), '.csv')
 write_csv(joined_data, save_filename)
 
-save_filename_RDS <- paste0('Table/Journal_Whitelist_Table_', Sys.Date(), '.RDS')
+save_filename_RDS <- paste0('Table/Journal_Whitelist_Table_', Sys.Date(), '.rds')
 saveRDS(joined_data, save_filename_RDS)
