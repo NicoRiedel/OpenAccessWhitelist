@@ -1,19 +1,14 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
+#This shiny app displays the Open Access Journal Whitelist in a 
+#searchable and filterable format in the browser using the datatable package
 #
 
 library(shiny)
 library(DT)
 library(tidyr)
 
-#if (!interactive()) sink(stderr(), type = "output")
-
+#read in .rds output from Journal_Whitelist_script.R here
 OA_Whitelist <- readRDS("data/Journal_Whitelist_Table_2018-02-22.rds")
+
 names(OA_Whitelist) <- c("Journal title", "SCImago Journal Rank (SJR)", "SJR Subject Category Quartile",
                          "Journal article processing charges (APCs)", "Currency",
                          "APC in EUR (incl. 19% taxes)",
@@ -94,7 +89,6 @@ server <- function(input, output) {
                                  ))
   })
   
-  write(paste0("App visit at: ", Sys.time()), "/var/log/shiny-server/visitors.txt", append = TRUE)
 }
 
 shinyApp(ui, server)
