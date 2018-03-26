@@ -106,9 +106,6 @@ doaj_data$`APC in EUR (including 19% taxes)`[no_APC_journal] <- 0
 doaj_data <- doaj_data %>% 
   mutate(`APC below 2000 EUR` = logical_to_yes_no(`APC in EUR (including 19% taxes)` < 2000))
 
-#add information on special terms of the Charite library for specific journals
-frontiers_journals <- doaj_data$Publisher == "Frontiers Media S.A."
-doaj_data[frontiers_journals,][["APC below 2000 EUR"]] <- "yes, library special terms"
 
 #simplify subject categories
 subjects_simplified <- lapply(doaj_data$Subjects, subject_simplification)
