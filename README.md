@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/126354475.svg)](https://zenodo.org/badge/latestdoi/126354475)
+
 Open Access Journal Whitelist
 ================
 
