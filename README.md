@@ -22,6 +22,8 @@ For a full list of available subject terms see the [DOAJ subject list](https://d
 Change included currencies for the Article Processing Charges (APC)  
 `APC_currencies_included <- c("EUR - Euro", "GBP - Pound Sterling", "USD - US Dollar", "CHF - Swiss Franc")`
 
+The script creates two files when run: A .csv file which can be loaded into e.g. Excel and a .rds file which is used for the R-Shiny App.
+
 R-Shiny App
 ---------------
 
