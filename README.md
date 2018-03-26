@@ -8,18 +8,18 @@ Re-using this List
 
 You can adapt and reuse this Open Access Journal Whitelist and adapt it to your field of interest by changing the following adjustable parameters:
 
-Change included journal languages
+Change included journal languages  
 `full_text_languages <- c("English", "German")`
 
-Change included subjects
+Change included subjects  
 `subjects_included <- c("Medicine", "Biology", "Biotechnology")`
 
-Change excluded subjects (e.g. subfields that do not need to be covered)
+Change excluded subjects (e.g. subfields that do not need to be covered)  
 `subjects_excluded <- c("Agriculture", "Plant culture")`
 
-For a full list of available subject terms see the [DOAJ subject list] (https://doaj.org/subjects).
+For a full list of available subject terms see the [DOAJ subject list](https://doaj.org/subjects).
 
-Change included currencies for the Article Processing Charges (APC)
+Change included currencies for the Article Processing Charges (APC)  
 `APC_currencies_included <- c("EUR - Euro", "GBP - Pound Sterling", "USD - US Dollar", "CHF - Swiss Franc")`
 
 R-Shiny App
@@ -37,8 +37,8 @@ Authors
 Contact
 ---------------
 
-Please e-mail nico.riedel at bihealth.de.
+Please e-mail <nico.riedel@bihealth.de>.
 
 Licence
 ---------------
-...
+This project is licensed under the MIT License - see the LICENSE.md file for details
