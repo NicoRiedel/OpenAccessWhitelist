@@ -7,7 +7,7 @@ library(DT)
 library(tidyr)
 
 #read in .rds output from Journal_Whitelist_script.R here
-OA_Whitelist <- readRDS("data/Journal_Whitelist_Table_2018-02-22.rds")
+OA_Whitelist <- readRDS("data/Journal_Whitelist_Table_2018-05-16.rds")
 
 names(OA_Whitelist) <- c("Journal title", "SCImago Journal Rank (SJR)", "SJR Subject Category Quartile",
                          "Journal article processing charges (APCs)", "Currency",
@@ -50,13 +50,17 @@ ui <- fluidPage(
                             Journals in the first quartile (Q1) are among those with the highest SJR in their respective subject category. 
                             The Qartiles are given with respect to the corresponding Scopus subject categories, while the subject 
                             categories used for this table are taken from DOAJ.'),
-                  helpText('The 2000€ APC threshold is the relevant threshold for many funders (e.g. the DFG), 
+                  helpText('The 2000€ APC threshold is a relevant threshold for some funders (e.g. the DFG), 
                            as they do not fund articles above this sum. 
                            Due to either outdated APC information, variations in the currency exchange rates or 
                            due to differences in taxing for journals from different countries the information if an APC lies below 2000 EUR might be inaccurate. 
                            Before deciding on a journal, please check the journal costs yourself (using the APC info link provided in the next column). 
-                           Some of the publishers have agreed on special terms with the Charité library (denoted as \'yes, library special terms\') 
-                           such that the journals of these publishers indeed stay below an APC of 2000€.'),
+                           Some of the publishers have agreed on special terms with the Charité library 
+                           such that the journals of these publishers have discounts on their fees. In many cases the APCs stay below 
+                           the 2000€ threshold or have further discounts even if they were already below the 2000 EUR threshold 
+                           (denoted as \'yes, library special terms\'). In some cases a dicount applies but the costs still stay above
+                           2000€ (denoted as \'no, but library discount applies\'). For further information see 
+                           https://bibliothek.charite.de/publizieren/open_access/verlagsvereinbarungen/'),
                   width = 3
                 ),
                 mainPanel(DT::dataTableOutput("whitelist")))
@@ -89,6 +93,7 @@ server <- function(input, output) {
                                  ))
   })
   
+  write(paste0("App visit at: ", Sys.time()), "/var/log/shiny-server/visitors.txt", append = TRUE)
 }
 
 shinyApp(ui, server)
