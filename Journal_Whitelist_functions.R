@@ -75,10 +75,21 @@ subject_simplification <- function(subject)
 get_scopus_var <- function(eISSN, pISSN, scopus_data, varname)
 {
   #try al matches of pISSN/eISSN
-  ee_var <- get_var_sub(eISSN, scopus_data$eISSN, scopus_data[[varname]])
-  ep_var <- get_var_sub(eISSN, scopus_data$pISSN, scopus_data[[varname]])
-  pe_var <- get_var_sub(pISSN, scopus_data$eISSN, scopus_data[[varname]])
-  pp_var <- get_var_sub(pISSN, scopus_data$pISSN, scopus_data[[varname]])
+  if(!is.na(eISSN)) {
+    ee_var <- get_var_sub(eISSN, scopus_data$eISSN, scopus_data[[varname]])
+    ep_var <- get_var_sub(eISSN, scopus_data$pISSN, scopus_data[[varname]])
+  } else {
+    ee_var <- NA
+    ep_var <- NA
+  }
+  
+  if(!is.na(pISSN)) {
+    pe_var <- get_var_sub(pISSN, scopus_data$eISSN, scopus_data[[varname]])
+    pp_var <- get_var_sub(pISSN, scopus_data$pISSN, scopus_data[[varname]])
+  } else {
+    pe_var <- NA
+    pp_var <- NA
+  }
   
   #get nonzero entry
   var_vec <- c(ee_var, ep_var, pe_var, pp_var)
