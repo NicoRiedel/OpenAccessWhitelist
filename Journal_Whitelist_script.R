@@ -156,7 +156,7 @@ pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
 # Scopus dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-scopus_data <-  read_delim(sjr_filename, delim = ";")#read.xls(sjr_filename) %>% as_tibble()
+scopus_data <-  read_delim(sjr_filename, delim = ";", locale = locale(decimal_mark = ","))#read.xls(sjr_filename) %>% as_tibble()
 
 useful_cols_scopus <- c("Title", "Issn", "SJR", "SJR Best Quartile")
 scopus_data <- scopus_data %>% 
