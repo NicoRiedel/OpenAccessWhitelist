@@ -7,7 +7,7 @@ library(DT)
 library(tidyr)
 
 #read in .rds output from Journal_Whitelist_script.R here
-OA_Whitelist <- readRDS("data/Journal_Whitelist_Table_2018-05-16.rds")
+OA_Whitelist <- readRDS("data/Journal_Whitelist_Table_2018-12-11.rds")
 
 names(OA_Whitelist) <- c("Journal title", "SCImago Journal Rank (SJR)", "SJR Subject Category Quartile",
                          "Journal article processing charges (APCs)", "Currency",
@@ -18,6 +18,9 @@ names(OA_Whitelist) <- c("Journal title", "SCImago Journal Rank (SJR)", "SJR Sub
                          "Journal license", "Journal URL",
                          "Publisher", "pISSN", "eISSN")
 
+url <- "https://twitter.com/intent/tweet?text=Hello%20world&url=https://shiny.rstudio.com/gallery/widget-gallery.html/"
+
+
 ui <- fluidPage(
   fluidRow(
     column(width = 3,
@@ -26,6 +29,11 @@ ui <- fluidPage(
     column(width = 9,
            h1("Open Access Journal Whitelist", align = "center"),
            h4("Contains biomedical open access journals that are listed on the Directory of Open Access Journals (DOAJ) and Pubmed Central.", align = "center"),
+           h4(HTML(paste0('Please note that this Open Access Journal Whitelist is only a first information source for finding 
+              a suitable open access journal and is by no means an exhaustive list of all valid open access journals. 
+              For a more complete list please consider the ',a(href = 'https://doaj.org/', 'Directory of Open Access Journals (DOAJ)'),'. 
+              We do not check the quality of the listed journals ourselves, but incorporate journals listed in the DOAJ, 
+              which undertakes a quality assessment of the journals.')), align = "center", style="color:#c12075"),
            div("This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 Unported License. To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/3.0/.", align = "center"),
            div("Authors: Bernard, René (Concept); Liebenau, Lisa (Concept); Riedel, Nico (Concept, Technical implementation)", align = "center"),
            div("  ")

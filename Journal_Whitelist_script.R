@@ -68,6 +68,9 @@ useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print versi
                       "Full text language", "Average number of weeks between submission and publication",
                       "Journal license", "Subjects")
 
+#manually fix subject category for one journal where the information is missing in DOAJ
+doaj_data$Subjects[doaj_data$`Journal title` == "Frontiers in Human Neuroscience"] <- "Medicine"
+
 #filter rows
 doaj_data <- doaj_data %>% select(one_of(useful_cols_doaj))
 doaj_data <- doaj_data %>% 
@@ -141,6 +144,7 @@ doaj_data <- doaj_data %>%
   select(-`Journal article submission fee`, -`Submission fee URL`, 
          -`Submission fee amount`, -`Submission fee currency`, 
          -`APC drop`, -`APC amount`, -Subjects)
+
 
 #----------------------------------------------------------------------------------------------------------------------------
 # PMC dataset
