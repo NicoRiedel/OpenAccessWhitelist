@@ -112,7 +112,7 @@ doaj_data <- doaj_data %>%
 #add information on special terms of the Charite library for specific journals
 special_conditions_publishers <- c("Frontiers Media S.A.", "BMJ Publishing Group",
                                  "Cambridge University Press", "Karger Publishers",
-                                 "MDPI AG")
+                                 "MDPI AG", "JMIR")
 special_conditions_journals <- c("PLoS ONE", "SAGE Open", "SAGE Open Medicine", 
                                  "SAGE Open Medical Case Reports")
 has_special_conditions <- doaj_data$Publisher %in% special_conditions_publishers |
