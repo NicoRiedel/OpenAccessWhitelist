@@ -1,24 +1,57 @@
-folder <- 'S:\\Partner\\BIH\\QUEST\\CENTER\\3 Service Infra Governance\\Open Access\\Whitelist Open Access Journals\\'
+#This script creates an ‘Open Access Journal Whitelist’ by aggregating 
+#information on Open Access Journals from the
+#Directory of Open Access Journals (DOAJ) and Pubmed Central (PMC). 
+#These two data sources ensure that the Journals obey certain quality standards.
+#DOAJ ensures high quality standards for journals; individual journals have to apply at DOAJ and 
+#are checked against a list of quality criteria. PMC stores the full-text version of 
+#open access articles and increases the visibility of research in that way. 
+#The current list focuses on biomedical journals but the included subjects 
+#can be adjusted in the 'adjustable parameters' section
+#Only journals that are assigned to the DOAJ subject categories ‘Medicine’ or ‘Biology’ and 
+#that have English or German as full-text language are included.
 
-source(paste0(folder, 'R-Code\\Journal_Whitelist_functions.R'))
-library(tidyverse)
-library(XML)
-library(jsonlite)
+#----------------------------------------------------------------------------------------------------------------------------
+# adjustable parameters
+#----------------------------------------------------------------------------------------------------------------------------
+
+#those are parameters for filtering the entries for certain parameters
+full_text_languages <- c("English", "German", "English, German")
+subjects_included <- c("Medicine", "Biology", "Biotechnology", "Physiology")
+#there might still be some more specialised subject categories we want to exclude
+subjects_excluded <- c("Agriculture", "Plant culture")
+APC_currencies_included <- c("EUR - Euro", "GBP - Pound Sterling", 
+                             "USD - US Dollar", "CHF - Swiss Franc")
+
+
+#----------------------------------------------------------------------------------------------------------------------------
+# load packages and datasets
+#----------------------------------------------------------------------------------------------------------------------------
+
+source('Journal_Whitelist_functions.R')
+require(tidyverse)
+require(jsonlite)
+require(gdata)
 
 #necessary datasets (only Scopus data needs to be provided, the others are automatically downloaded to that file)
-doaj_filename <- paste0(folder, 'Datasets\\DOAJ_journal_list_upd.csv')
-pmc_filename <- paste0(folder, 'Datasets\\PMC_journal_list_upd.csv')
-sjr_filename <- paste0(folder, 'Datasets\\Scopus_SJR_June_2017.txt')
-sjr_quartiles <- paste0(folder, 'Datasets\\Scopus_SJR_2016_Quartile.txt')
+if(!dir.exists('Datasets/')) {
+  dir.create('Datasets/')
+}
+doaj_filename <- 'Datasets/DOAJ_journal_list_upd.csv'
+pmc_filename <- 'Datasets/PMC_journal_list_upd.csv'
+sjr_filename <- 'Datasets/Scopus_SJR_2016.csv'
 
 #update datasets
 download.file('https://doaj.org/csv', doaj_filename)
 download.file('https://www.ncbi.nlm.nih.gov/pmc/journals/?format=csv', pmc_filename)
+download.file('http://www.scimagojr.com/journalrank.php?out=xls', sjr_filename, mode = "wb")
 
-#currency excange rates
-exchange_rates <- fromJSON(readLines("https://api.fixer.io/latest?symbols=USD,GBP,CHF"))
-exchange_rates <- c(1.0, unlist(exchange_rates$rates) , NA)
-names(exchange_rates) <- c("EUR", "CHF", "GBP", "USD", "-")
+exchange_currencies <- str_sub(APC_currencies_included, 1, 3)
+exchange_currencies <- exchange_currencies[exchange_currencies != "EUR"]
+  
+exchange_rates <- c(1.0, 
+                    map_dbl(exchange_currencies, get_exchange_rate, currency_to = "EUR"),
+                    NA)
+names(exchange_rates) <- c("EUR", exchange_currencies, "-")
 
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -35,19 +68,22 @@ useful_cols_doaj <- c('Journal title', 'Journal URL', 'Journal ISSN (print versi
                       "Full text language", "Average number of weeks between submission and publication",
                       "Journal license", "Subjects")
 
+#manually fix subject category for one journal where the information is missing in DOAJ
+doaj_data$Subjects[doaj_data$`Journal title` == "Frontiers in Human Neuroscience"] <- "Medicine"
+
 #filter rows
 doaj_data <- doaj_data %>% select(one_of(useful_cols_doaj))
 doaj_data <- doaj_data %>% 
-  filter(`Full text language` == "English" | `Full text language` == "German") %>% #English only journals
-  filter(grepl("Medicine|Biology|Biotechnology", `Subjects`)) %>% 
-  filter(!grepl("Agriculture|Plant culture", `Subjects`)) %>% #Which categories to use?
+  filter(`Full text language` %in% full_text_languages) %>% #English only journals
+  filter(grepl(paste(subjects_included, collapse = "|"), `Subjects`)) %>% 
+  filter(!grepl(paste(subjects_excluded, collapse = "|"), `Subjects`)) %>% #Which categories to use?
   filter(is.na(`Submission fee amount`)) %>% #Take only journals without submission fee
-  filter(`Currency` == "EUR - Euro" | `Currency` == "GBP - Pound Sterling" | `Currency` == "USD - US Dollar" | `Currency` == "CHF - Swiss Franc" | is.na(`Currency`))
+  filter(`Currency` %in% APC_currencies_included | is.na(`Currency`))
 
-#biology categories to exclude:
-#Agriculture, Plant culture
 
 #filter rows that do not easily work with the dplyr filter
+#remove journals with a regional focus (using non-comprehensive list of regional terms,
+# - might exclude journals with an actual international focus!)
 doaj_data <- doaj_data[!sapply(doaj_data$`Journal title`, is_regional_journal),]
 
 
@@ -74,8 +110,19 @@ doaj_data <- doaj_data %>%
   mutate(`APC below 2000 EUR` = logical_to_yes_no(`APC in EUR (including 19% taxes)` < 2000))
 
 #add information on special terms of the Charite library for specific journals
-frontiers_journals <- doaj_data$Publisher == "Frontiers Media S.A."
-doaj_data[frontiers_journals,][["APC below 2000 EUR"]] <- "yes, library special terms"
+special_conditions_publishers <- c("Frontiers Media S.A.", "BMJ Publishing Group",
+                                 "Cambridge University Press", "Karger Publishers",
+                                 "MDPI AG", "JMIR")
+special_conditions_journals <- c("PLoS ONE", "SAGE Open", "SAGE Open Medicine", 
+                                 "SAGE Open Medical Case Reports")
+has_special_conditions <- doaj_data$Publisher %in% special_conditions_publishers |
+                          doaj_data$`Journal title` %in% special_conditions_journals
+doaj_data[has_special_conditions,][["APC below 2000 EUR"]] <- "yes, library special terms"
+
+#for some journals there is a reduction in the journal fee but they still don't fall under the 2000€ threshold
+only_discount_journals <- c("BMJ Open Diabetes Research & Care")
+is_discount_only <- doaj_data$`Journal title` %in% only_discount_journals
+doaj_data[is_discount_only,][["APC below 2000 EUR"]] <- "no, but library discount applies"
 
 #simplify subject categories
 subjects_simplified <- lapply(doaj_data$Subjects, subject_simplification)
@@ -98,6 +145,7 @@ doaj_data <- doaj_data %>%
          -`Submission fee amount`, -`Submission fee currency`, 
          -`APC drop`, -`APC amount`, -Subjects)
 
+
 #----------------------------------------------------------------------------------------------------------------------------
 # PMC dataset
 #----------------------------------------------------------------------------------------------------------------------------
@@ -112,23 +160,28 @@ pmc_data <- pmc_data %>% select(one_of(useful_cols_pmc))
 # Scopus dataset
 #----------------------------------------------------------------------------------------------------------------------------
 
-scopus_data <- read_delim(sjr_filename, delim = "\t")
+scopus_data <-  read_delim(sjr_filename, delim = ";", locale = locale(decimal_mark = ","))#read.xls(sjr_filename) %>% as_tibble()
 
-useful_cols_scopus <- c("Source Title", "Print-ISSN", "E-ISSN", "2016 SJR", "Active or Inactive")
-scopus_data <- scopus_data %>% select(one_of(useful_cols_scopus)) %>%
-  rename(pISSN = `Print-ISSN`) %>%
-  rename(eISSN = `E-ISSN`) %>%
-  rename(`SJR Impact` = `2016 SJR`) %>%
-  rename(Active_Inactive = `Active or Inactive`)
+useful_cols_scopus <- c("Title", "Issn", "SJR", "SJR Best Quartile")
+scopus_data <- scopus_data %>% 
+  select(one_of(useful_cols_scopus)) %>%
+  separate(Issn, into = c("eISSN", "pISSN")) %>%
+  rename(`SJR Impact` = SJR) %>%
+  mutate(`SJR Impact` = as.double(as.character(`SJR Impact`))) %>%
+  mutate(`SJR Best Quartile` = as.character(`SJR Best Quartile`))
+scopus_data$eISSN[scopus_data$eISSN == ""] <- NA
 
 #introduce '-' character in the middle of eISSN/pISSN to make it consistent with other data sources
-scopus_data$pISSN <- paste(substring(scopus_data$pISSN, 1, 4), substring(scopus_data$pISSN, 5, 8), sep = "-")
+scopus_data$pISSN <- paste(str_sub(scopus_data$pISSN, 1, 4), str_sub(scopus_data$pISSN, 5, 8), sep = "-")
 scopus_data$eISSN <- paste(substring(scopus_data$eISSN, 1, 4), substring(scopus_data$eISSN, 5, 8), sep = "-")
 
-#load the additonal table with the quartile information and join into first scopus dataset
-scopus_quartile <- read_delim(sjr_quartiles, delim = "\t")
-scopus_data <- scopus_data %>% 
-  left_join(scopus_quartile, by = c("Source Title" = "Title"))
+#unfortunately paste() doesn't know how to deal with NA's
+scopus_data$pISSN[scopus_data$pISSN == "NA-NA"] <- NA
+scopus_data$eISSN[scopus_data$eISSN == "NA-NA"] <- NA
+
+#filter all entries that have neither an eISSN nor an pISSN
+scopus_data <- scopus_data %>%
+  filter(!(is.na(eISSN) & is.na(pISSN)))
 
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -163,33 +216,19 @@ joined_data <- joined_data %>%
 
 #scopus join
 
-#as the scopus eISSN as well as pISSN has to be checked against both DOAJ pISSN/eISSN
+#as the scopus eISSN and pISSN might be interchanged
+#both have to be checked against both DOAJ pISSN/eISSN
 #use self-defined function instead of regular join
-SJR_vec <- rep(NA, dim(joined_data)[1])
-for(i in 1:dim(joined_data)[1])
-{
-  SJR_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "SJR Impact")
-}
-
-#add the Active/Inactive column and filter journals marked as inactive
-active_vec <- rep(NA, dim(joined_data)[1])
-for(i in 1:dim(joined_data)[1])
-{
-  active_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "Active_Inactive")
-}
+SJR_vec <- map2_dbl(joined_data$eISSN, joined_data$pISSN, get_scopus_var, 
+                scopus_data = scopus_data, varname = "SJR Impact")
 
 #add the SJR quartile column
-SJR_quartile_vec <- rep(NA, dim(joined_data)[1])
-for(i in 1:dim(joined_data)[1])
-{
-  SJR_quartile_vec[i] <- get_scopus_var(joined_data$eISSN[i], joined_data$pISSN[i], scopus_data, "SJR Best Quartile")
-}
+SJR_quartile_vec <- map2_chr(joined_data$eISSN, joined_data$pISSN, get_scopus_var, 
+                             scopus_data = scopus_data, varname = "SJR Best Quartile")
 
 joined_data <- joined_data %>%
   add_column(`SJR Impact` = SJR_vec) %>%
-  add_column(`Active or Inactive` = active_vec) %>%
-  add_column(`SJR Subject Category Best Quartile` = SJR_quartile_vec) %>%
-  filter(`Active or Inactive` != "Inactive" | is.na(`Active or Inactive`))
+  add_column(`SJR Subject Category Best Quartile` = SJR_quartile_vec)
 
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -213,8 +252,16 @@ joined_data <- joined_data %>%
 #filter duplicated journals (again, since some duplicates reappeared for some unknown reason)
 joined_data <- joined_data[!duplicated(joined_data$eISSN),]
 
-save_filename <- paste0(folder, 'Published Versions//Journal_Whitelist_Table_', Sys.Date(), '.csv')
+#convert NAs to "-" for final list
+joined_data$`SJR Impact`[is.na(joined_data$`SJR Impact`)] <- "-"
+joined_data$`SJR Subject Category Best Quartile`[is.na(joined_data$`SJR Subject Category Best Quartile`)] <- "-"
+
+#save resulting table in two formats (.csv for e.g. loading into Excel) or .RDS for use in the R-Shiny app
+if(!dir.exists('Table/')) {
+  dir.create('Table/')
+}
+save_filename <- paste0('Table/Journal_Whitelist_Table_', Sys.Date(), '.csv')
 write_csv(joined_data, save_filename)
 
-save_filename_RDS <- paste0(folder, 'Published Versions//Journal_Whitelist_Table_', Sys.Date(), '.RDS')
+save_filename_RDS <- paste0('Table/Journal_Whitelist_Table_', Sys.Date(), '.rds')
 saveRDS(joined_data, save_filename_RDS)
